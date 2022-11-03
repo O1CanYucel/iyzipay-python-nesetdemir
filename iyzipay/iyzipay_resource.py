@@ -4,7 +4,6 @@ import hmac
 import importlib
 import json
 import random
-import re
 import string
 
 import iyzipay
@@ -32,16 +31,7 @@ class IyzipayResource:
     def get_http_header(self, url, options=None, body_str=None, pki_string=None):
         random_str = self.generate_random_string(self.RANDOM_STRING_SIZE)
         self.header.update({'x-iyzi-rnd': random_str})
-        if re.search(self.RE_SEARCH_V2, url, re.IGNORECASE) is not None:
-            return self.get_http_header_v2(url, options, random_str, body_str)
-        else:
-            return self.get_http_header_v1(options, pki_string, random_str)
-
-    def get_http_header_v1(self, options, pki_string, random_str=None):
-        if pki_string is not None:
-            self.header.update(
-                {'Authorization': self.prepare_auth_string(options, random_str, pki_string)})
-        return self.header
+        return self.get_http_header_v2(url, options, random_str, body_str)
 
     def get_http_header_v2(self, url, options, random_str, body_str):
         url = url.split('?')[0]
@@ -63,29 +53,10 @@ class IyzipayResource:
         ]
         return base64.b64encode('&'.join(authorization_params).encode()).decode()
 
-    def get_plain_http_header(self, options):
-        return self.get_http_header_v1(None, options)
-
-    def prepare_auth_string(self, options, random_str, pki_string):
-        hashed = self.generate_hash(options['apiKey'], options['secretKey'], random_str, pki_string)
-        return self.format_header_string(options['apiKey'], hashed)
-
     def generate_random_string(self, size):
         return "".join(
                 random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in
                 range(size))
-
-    @staticmethod
-    def generate_hash(api_key, secret_key, random_string, pki_string):
-        hash_str = api_key + random_string + secret_key + pki_string
-        hex_dig = hashlib.sha1(hash_str.encode()).digest()
-
-        return base64.b64encode(hex_dig)
-
-    @staticmethod
-    def format_header_string(api_key, hashed):
-        hashed = hashed.decode('utf-8')
-        return 'IYZWS %s:%s' % (api_key, hashed)
 
     @staticmethod
     def resource_pki(request):
